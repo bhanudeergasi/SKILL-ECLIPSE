@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text Sentiment Predictor</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/creativetimofficial/tailwind-starter-kit/compiled-tailwind.min.css" />
+</head>
+
+<body class="text-gray-800 antialiased">
+    <header class="bg-gradient-to-r from-teal-500 to-blue-900 py-16">
+        <div class="container mx-auto text-center">
+            <h1 class="text-5xl text-white font-bold">Text Sentiment Prediction</h1>
+        </div>
+    </header>
+
+    <main class="py-20 bg-gray-100">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-wrap justify-center">
+                <div class="w-full md:w-6/12 lg:w-4/12 px-4">
+                    <form id="predictionForm" class="bg-white p-6 rounded-lg shadow-lg">
+                        <div class="mb-4">
+                            <label for="csvFileInput" class="block text-sm font-medium text-gray-700">Upload your CSV file</label>
+                            <input type="file" id="csvFileInput" accept=".csv" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:border-teal-500 focus:ring focus:ring-teal-500 focus:ring-opacity-50">
+                        </div>
+                        <div class="mb-4">
+                            <label for="textInput" class="block text-sm font-medium text-gray-700">Text for Prediction</label>
+                            <textarea id="textInput" placeholder="Enter text..." class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:border-teal-500 focus:ring focus:ring-teal-500 focus:ring-opacity-50"></textarea>
+                        </div>
+                        <button type="button" onclick="predict()" class="w-full bg-teal-500 text-white py-2 rounded-md shadow-md hover:bg-teal-600">Predict</button>
+                    </form>
+                </div>
+                <div class="w-full md:w-6/12 lg:w-4/12 px-4 mt-8 md:mt-0">
+                    <h2 class="text-2xl font-semibold mb-4">Prediction Result</h2>
+                    <div id="predictionResult" class="bg-white p-4 border rounded-lg shadow-md mb-4"></div>
+                    <h2 class="text-2xl font-semibold mb-4">Graph Result</h2>
+                    <div id="graphContainer" class="bg-white p-4 border rounded-lg shadow-md"></div>
+                    <button id="downloadBtn" style="display:none" onclick="downloadPredictions()" class="w-full bg-teal-500 text-white py-2 rounded-md shadow-md mt-4 hover:bg-teal-600">Download Predictions</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function predict() {
+            var csvFileInput = document.getElementById("csvFileInput");
+            var textInput = document.getElementById("textInput");
+            var predictionResult = document.getElementById("predictionResult");
+            var graphContainer = document.getElementById("graphContainer");
+
+            if (csvFileInput.files.length > 0) {
+                var formData = new FormData();
+                formData.append("file", csvFileInput.files[0]);
+
+                fetch("http://localhost:5000/predict", {
+                    method: "POST",
+                    body: formData
+                })
+                .then(response => {
+                    if (response.headers.get('X-Graph-Exists') === 'true') {
+                        var graphData = response.headers.get('X-Graph-Data');
+                        displayGraph(graphData);
+                    }
+                    return response.blob();
+                })
+                .then(blob => {
+                    document.getElementById("downloadBtn").style.display = "block";
+                    document.getElementById("downloadBtn").onclick = function () {
+                        var url = URL.createObjectURL(blob);
+                        var a = document.createElement("a");
+                        a.href = url;
+                        a.download = "Predictions.csv";
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                    };
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                });
+
+            } else if (textInput.value.trim() !== "") {
+                fetch("http://localhost:5000/predict", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ "text": textInput.value.trim() })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    predictionResult.innerHTML = "Predicted sentiment: " + data.prediction;
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                });
+            }
+        }
+
+        function downloadPredictions() {
+            console.log("Download prediction");
+        }
+
+        function displayGraph(graphData) {
+            graphContainer.innerHTML = "";
+            var graphUrl = "data:image/png;base64," + graphData;
+            var img = document.createElement('img');
+            img.src = graphUrl;
+            img.className = "w-full h-auto";
+            graphContainer.appendChild(img);
+        }
+    </script>
+</body>
+
+</html>
+
